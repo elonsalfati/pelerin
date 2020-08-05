@@ -7,4 +7,7 @@ import "google/protobuf/struct.proto";
 service Greeter {
   // Sends a greeting
   rpc SayHello (google.protobuf.Value) returns (google.protobuf.Value) {}
+  rpc SayHelloReqStream(stream google.protobuf.Value) returns (google.protobuf.Value) {}
+  rpc SayHelloResStream(google.protobuf.Value) returns (stream google.protobuf.Value) {}
+  rpc SayHelloBidi(stream google.protobuf.Value) returns (stream google.protobuf.Value) {}
 }

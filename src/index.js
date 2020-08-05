@@ -1,7 +1,6 @@
 const grpc = require("grpc")
 const utils = require("./utils")
-const Request = require("./request")
-const Response = require("./response")
+const handlers = require("./handlers")
 
 /**
  * Pelerin server provides an HTTP/2 and gRPC based
@@ -33,11 +32,18 @@ class Pelerin {
    */
   _generateHandler(callback) {
     return (call, grpcCallback) => {
-      callback(
-        new Request(call),
-        new Response(grpcCallback),
-        () => {} // next execution function
-      )
+      // check if call exists
+      if (call && call.constructor) {
+        // get call name
+        const { name } = call.constructor
+
+        if (handlers[name]) {
+          return handlers[name](call, grpcCallback, callback)
+        }
+      }
+
+      // throw error
+      throw new Error("unexpected call type")
     }
   }
 
@@ -57,7 +63,7 @@ class Pelerin {
     // chain to existing definitions
     for (const [serviceName, handlers] of Object.entries(this._description)) {
       for (const handlerName of Object.keys(handlers)) {
-        this._description[serviceName][handlerName].push(handler)
+        this._description[serviceName][handlerName].chains.push(handler)
       }
     }
   }
@@ -83,18 +89,43 @@ class Pelerin {
 
       // create service and handlers if missing
       if (!this._description[serviceName]) this._description[serviceName] = {}
-      if (!this._description[serviceName][handlerName]) this._description[serviceName][handlerName] = []
+      if (!this._description[serviceName][handlerName]) this._description[serviceName][handlerName] = {
+        chains: [],
+        options: {}
+      }
 
       // append global chains
       if (this._globalchains.length) {
-        this._description[serviceName][handlerName].push(...this._globalchains)
+        this._description[serviceName][handlerName].chains.push(...this._globalchains)
         this._globalchains = []
       }
 
       // chain handler
-      this._description[serviceName][handlerName].push(handler)
+      this._description[serviceName][handlerName].chains.push(handler)
     } else {
       throw new Error("path must be of the following structure {serviceName}/{handlerName}")
+    }
+  }
+
+  /**
+   * Add an handler with special settings.
+   *
+   * @param {string} path - THe path to the service and handler.
+   * @param {object} settings - Endpoint settings.
+   * @param {Function} callback - Handler.
+   * @returns {object} - this
+   */
+  _chainHandlerWithSettings(path, settings, callback) {
+    // chain handler
+    this._chainHandlerWithCallback(path, callback)
+
+    // get service and handler name
+    const [serviceName, handlerName] = path.split("/")
+
+    // append settings
+    this._description[serviceName][handlerName].options = {
+      ...this._description[serviceName][handlerName].options,
+      ...settings
     }
   }
 
@@ -113,6 +144,10 @@ class Pelerin {
     else if (argumentsLen === 2 && arguments[0].constructor === String && arguments[1].constructor === Function)
       return this._chainHandlerWithCallback(...arguments)
 
+    // receive path, settings, and callback
+    else if (argumentsLen === 3 && arguments[0].constructor === String && arguments[1].constructor === Object && arguments[2].constructor === Function)
+      return this._chainHandlerWithSettings(...arguments)
+
     // unexpected attributes
     throw new Error("unexpected values to chain function")
   }
@@ -127,16 +162,17 @@ class Pelerin {
       const executions = {}
 
       // for each handler define the service and executions
-      for (const [handlerName, callbacks] of Object.entries(handlers)) {
+      for (const [handlerName, handlerDef] of Object.entries(handlers)) {
         // define the service definition
         service[handlerName] = {
           ...utils.getDefaultServiceDefinition(),
+          ...this._description[serviceName][handlerName].options,
           path: `/${this.options.protoName}.${serviceName}/${handlerName}`
         }
 
         // set execution map
         executions[handlerName] = (call, callback) => {
-          for (const cb of callbacks) {
+          for (const cb of handlerDef.chains) {
             cb(call, callback)
           }
         }

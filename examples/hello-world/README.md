@@ -5,6 +5,8 @@ To start the server:
 node index.js
 ```
 
+- The proto file in this example is used only for the grpcurl request.
+
 On another terminal, run the grpcurl request:
 ```shell
 grpcurl \
