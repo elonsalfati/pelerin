@@ -1,6 +1,7 @@
 const grpc = require("grpc")
 const utils = require("./utils")
-const handlers = require("./handlers")
+const Request = require("./request")
+const Response = require("./response")
 
 /**
  * Pelerin server provides an HTTP/2 and gRPC based
@@ -31,19 +32,12 @@ class Pelerin {
    * @returns {Function} - Handler.
    */
   _generateHandler(callback) {
-    return (call, grpcCallback) => {
-      // check if call exists
-      if (call && call.constructor) {
-        // get call name
-        const { name } = call.constructor
-
-        if (handlers[name]) {
-          return handlers[name](call, grpcCallback, callback)
-        }
-      }
-
-      // throw error
-      throw new Error("unexpected call type")
+    return async (call, grpcCallback) => {
+      return callback(
+        new Request(call),
+        new Response(grpcCallback),
+        () => { } // next execution function
+      )
     }
   }
 
@@ -137,15 +131,15 @@ class Pelerin {
     const argumentsLen = arguments.length
 
     // recieve only callback - global middleware
-    if (argumentsLen === 1 && arguments[0].constructor === Function)
+    if (argumentsLen === 1 && utils.isFunction(arguments[0]))
       return this._chainGlobalMiddleware(...arguments)
 
     // receive path and callback
-    else if (argumentsLen === 2 && arguments[0].constructor === String && arguments[1].constructor === Function)
+    else if (argumentsLen === 2 && arguments[0].constructor === String && utils.isFunction(arguments[1]))
       return this._chainHandlerWithCallback(...arguments)
 
     // receive path, settings, and callback
-    else if (argumentsLen === 3 && arguments[0].constructor === String && arguments[1].constructor === Object && arguments[2].constructor === Function)
+    else if (argumentsLen === 3 && arguments[0].constructor === String && arguments[1].constructor === Object && utils.isFunction(arguments[2]))
       return this._chainHandlerWithSettings(...arguments)
 
     // unexpected attributes

@@ -1,3 +1,4 @@
+const utils = require("./utils")
 
 /**
  * Define the pelerin request built
@@ -7,12 +8,11 @@ class Request {
   /**
    * Initialize the pelerin request.
    *
-   * @param {object} grpcCall - gRPC Call.
+   * @param {object} call - gRPC Call.
    */
-  constructor(grpcCall) {
+  constructor(call) {
     // raw request
-    this._rawCall = grpcCall
-    this._rawReq = grpcCall.request
+    this._call = call
   }
 
   /**
@@ -20,7 +20,25 @@ class Request {
    * from the gRPC request.
    */
   get body() {
-    return this._rawReq.toJavaScript()
+    const { name } = this._call.constructor
+
+    switch (name) {
+      case "ServerUnaryCall":
+        return this._call.request.toJavaScript()
+
+      case "ServerReadableStream":
+        return utils.stream.call(this._call)
+
+      case "ServerWritableStream":
+        break
+
+      case "ServerDuplexStream":
+        break
+
+      default:
+        if (this._call.toJavaScript)
+          return this._call.toJavaScript()
+    }
   }
 }
 

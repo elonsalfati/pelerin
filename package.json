@@ -17,6 +17,7 @@
   },
   "license": "MIT",
   "dependencies": {
+    "event-iterator": "^2.0.0",
     "google-protobuf": "^3.12.4",
     "grpc": "^1.24.3"
   }
