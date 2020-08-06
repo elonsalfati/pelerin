@@ -21,7 +21,7 @@ class Request {
    * @returns {object} - Headers.
    */
   get headers() {
-    return this._call.metadata
+    return this._call.metadata.getMap()
   }
 
   /**

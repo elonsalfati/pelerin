@@ -1,7 +1,6 @@
 const grpc = require("grpc")
 const utils = require("./utils")
 const serializers = require("./serializers")
-const { EventIterator } = require("event-iterator")
 
 /**
  * Define the pelerin client.
@@ -63,19 +62,41 @@ class PelerinClient {
   }
 
   /**
+   * Generate metadata object.
+   *
+   * @param {object} headers - Headers object.
+   * @returns {object} - Metadata
+   */
+  _genMetadata(headers) {
+    // create new metadata instance
+    const metadata = new grpc.Metadata()
+
+    // append each header
+    for (const [key, value] of Object.entries(headers)) {
+      metadata.set(key, value)
+    }
+
+    return metadata
+  }
+
+  /**
    * Send unary request to the server.
    *
    * @param {string} path - The endpoint path.
    * @param {object} value - Serialized object request.
+   * @param {object} options - External options.
    */
-  _sendUnaryRequest(path, value) {
+  _sendUnaryRequest(path, value, options) {
     // get target names
     const [, , handlerName] = path.split("/")
+
+    // generate metadata
+    const metadata = this._genMetadata(options.headers)
 
     // return new promise with the results
     return new Promise((resolve, reject) => {
       // execute grpc request and promisify callback
-      this.client[handlerName](value, (err, response) => {
+      this.client[handlerName](value, metadata, (err, response) => {
         if (response) {
           resolve(response.toJavaScript())
         }
@@ -90,13 +111,17 @@ class PelerinClient {
    *
    * @param {string} path - The endpoint path.
    * @param {object} value - Serialized object request.
+   * @param {object} options - External options.
    */
-  _sendServerStreamRequest(path, value) {
+  _sendServerStreamRequest(path, value, options) {
     // get target names
     const [, , handlerName] = path.split("/")
 
+    // generate metadata
+    const metadata = this._genMetadata(options.headers)
+
     // execute request
-    const call = this.client[handlerName](value)
+    const call = this.client[handlerName](value, metadata)
 
     // resolve stream
     return Promise.resolve(
@@ -109,16 +134,20 @@ class PelerinClient {
    *
    * @param {string} path - The endpoint path.
    * @param {object} value - Serialized object request.
+   * @param {object} options - External options.
    * @returns {object} - this
    */
-  _sendClientStreamRequest(path, value) {
+  _sendClientStreamRequest(path, value, options) {
     // get target names
     const [, , handlerName] = path.split("/")
+
+    // generate metadata
+    const metadata = this._genMetadata(options.headers)
 
     // execute request
     if (!this._call) {
       this._promise = new Promise((resolve, reject) => {
-        this._call = this.client[handlerName]((err, response) => {
+        this._call = this.client[handlerName](metadata, (err, response) => {
           if (response) {
             resolve(response.toJavaScript())
           }
@@ -137,15 +166,19 @@ class PelerinClient {
    *
    * @param {string} path - The endpoint path.
    * @param {object} value - Serialized object request.
+   * @param {object} options - External options.
    * @returns {object} - this
    */
-  _sendBidirectionalStreamRequest(path, value) {
+  _sendBidirectionalStreamRequest(path, value, options) {
     // get target names
     const [, , handlerName] = path.split("/")
 
+    // generate metadata
+    const metadata = this._genMetadata(options.headers)
+
     // execute request
     if (!this._call) {
-      this._call = this.client[handlerName]()
+      this._call = this.client[handlerName](metadata)
       this._bidi = utils.stream.call(this._call)
     }
 
@@ -207,19 +240,19 @@ class PelerinClient {
     // choose request type
     // unary request
     if (_options.requestStream === false && _options.responseStream === false)
-      return this._sendUnaryRequest(path, value)
+      return this._sendUnaryRequest(path, value, _options)
 
     // server stream
     else if (_options.requestStream === false && _options.responseStream === true)
-      return this._sendServerStreamRequest(path, value)
+      return this._sendServerStreamRequest(path, value, _options)
 
     // client stream
     else if (_options.requestStream === true && _options.responseStream === false)
-      return this._sendClientStreamRequest(path, value)
+      return this._sendClientStreamRequest(path, value, _options)
 
     // bidirectional stream
     else if (_options.requestStream === true && _options.responseStream === true)
-      return this._sendBidirectionalStreamRequest(path, value)
+      return this._sendBidirectionalStreamRequest(path, value, _options)
 
     // unexpected request type
     else
