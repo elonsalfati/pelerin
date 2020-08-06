@@ -226,6 +226,7 @@ class PelerinClient {
   send(path, obj, options = {}) {
     // set options
     const _options = {
+      headers: {},
       requestStream: false,
       responseStream: false,
       ...options
