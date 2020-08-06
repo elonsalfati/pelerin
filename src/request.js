@@ -28,10 +28,8 @@ class Request {
         return this._call.request.toJavaScript()
 
       case "ServerReadableStream":
-        return utils.stream.call(this._call)
-
       case "ServerDuplexStream":
-        break
+        return utils.stream.call(this._call)
 
       default:
         if (this._call.toJavaScript)

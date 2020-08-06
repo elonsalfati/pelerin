@@ -1,6 +1,7 @@
 const grpc = require("grpc")
 const utils = require("./utils")
 const serializers = require("./serializers")
+const { EventIterator } = require("event-iterator")
 
 /**
  * Define the pelerin client.
@@ -21,6 +22,8 @@ class PelerinClient {
 
     // set tmp call
     this._call = null
+    this._bidi = null
+    this.client = null
     this._promise = null
   }
 
@@ -129,7 +132,33 @@ class PelerinClient {
     return this
   }
 
-  _sendBidirectionalStreamRequest(path, value) {}
+  /**
+   * Send bidirectional stream request to the server.
+   *
+   * @param {string} path - The endpoint path.
+   * @param {object} value - Serialized object request.
+   * @returns {object} - this
+   */
+  _sendBidirectionalStreamRequest(path, value) {
+    // get target names
+    const [, , handlerName] = path.split("/")
+
+    // execute request
+    if (!this._call) {
+      this._call = this.client[handlerName]()
+      this._bidi = utils.stream.call(this._call)
+    }
+
+    this._call.write(value)
+    return this
+  }
+
+  /**
+   * Returns the bidi stream.
+   */
+  get bidiStream() {
+    return this._bidi
+  }
 
   /**
    * Finish stream requests
@@ -137,11 +166,17 @@ class PelerinClient {
    * @returns {Promise}
    */
   finish() {
+    // check for call
     if (this._call) {
+      // close stream
       this._call.end()
 
+      // return promise
       if (this._promise)
         return this._promise
+
+      if (this._bidi)
+        return Promise.resolve(this._bidi)
     }
 
     return Promise.reject("unavailable response")

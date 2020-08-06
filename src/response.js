@@ -34,10 +34,8 @@ class Response {
         )
 
       case "ServerWritableStream":
-        this._call.write(value)
-
       case "ServerDuplexStream":
-        break
+        return this._call.write(value)
 
       default:
         break
@@ -50,7 +48,7 @@ class Response {
   finish() {
     const { name } = this._call.constructor
 
-    if (name === "ServerWritableStream") {
+    if (["ServerWritableStream", "ServerDuplexStream"].includes(name)) {
       this._call.end()
     }
   }
