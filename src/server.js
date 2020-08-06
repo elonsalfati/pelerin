@@ -35,7 +35,7 @@ class Pelerin {
     return async (call, grpcCallback) => {
       return callback(
         new Request(call),
-        new Response(grpcCallback),
+        new Response(call, grpcCallback),
         () => { } // next execution function
       )
     }

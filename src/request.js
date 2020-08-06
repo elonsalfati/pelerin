@@ -30,6 +30,7 @@ class Request {
         return utils.stream.call(this._call)
 
       case "ServerWritableStream":
+        console.log("this is writable stream", this._call)
         break
 
       case "ServerDuplexStream":

@@ -8,9 +8,11 @@ class Response {
   /**
    * Initialize pelerin response.
    *
+   * @param {object} call - The gRPC call.
    * @param {Function} grpcCallback - gRPC callback.
    */
-  constructor(grpcCallback) {
+  constructor(call, grpcCallback) {
+    this._call = call
     this._grpcCallback = grpcCallback
   }
 
@@ -20,11 +22,37 @@ class Response {
    * @param {object} obj - Data to send.
    */
   send(obj) {
-    // responde to the request
-    this._grpcCallback(
-      null,
-      serializers.valueFromJs(obj)
-    )
+    const { name } = this._call.constructor
+    const value = serializers.valueFromJs(obj)
+
+    switch (name) {
+      case "ServerUnaryCall":
+      case "ServerReadableStream":
+        return this._grpcCallback(
+          null,
+          value
+        )
+
+      case "ServerWritableStream":
+        this._call.write(value)
+
+      case "ServerDuplexStream":
+        break
+
+      default:
+        break
+    }
+  }
+
+  /**
+   * Finish write stream.
+   */
+  finish() {
+    const { name } = this._call.constructor
+
+    if (name === "ServerWritableStream") {
+      this._call.end()
+    }
   }
 }
 
