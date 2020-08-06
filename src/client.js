@@ -36,10 +36,6 @@ class PelerinClient {
       // get service and handler name
       const [host, serviceName, handlerName] = splittedPath
 
-      // initialize service and handlers if missing
-      // if (!this._description[serviceName])
-      //   this._description[serviceName] = {}
-
       if (!this._description[handlerName])
         this._description[handlerName] = {}
 
@@ -60,6 +56,52 @@ class PelerinClient {
   }
 
   /**
+   * Send unary request to the server.
+   *
+   * @param {string} path - The endpoint path.
+   * @param {object} value - Serialized object request.
+   */
+  _sendUnaryRequest(path, value) {
+    // get target names
+    const [, , handlerName] = path.split("/")
+
+    // return new promise with the results
+    return new Promise((resolve, reject) => {
+      // execute grpc request and promisify callback
+      this.client[handlerName](value, (err, response) => {
+        if (response) {
+          resolve(response.toJavaScript())
+        }
+
+        reject(err)
+      })
+    })
+  }
+
+  /**
+   * Send server stream request to the server.
+   *
+   * @param {string} path - The endpoint path.
+   * @param {object} value - Serialized object request.
+   */
+  _sendServerStreamRequest(path, value) {
+    // get target names
+    const [, , handlerName] = path.split("/")
+
+    // execute request
+    const call = this.client[handlerName](value)
+
+    // resolve stream
+    return Promise.resolve(
+      utils.stream.call(call)
+    )
+  }
+
+  _sendClientStreamRequest(path, value) {}
+
+  _sendBidirectionalStreamRequest(path, value) {}
+
+  /**
    * Sends a dynamic value to a dynamic server.
    *
    * @param {string} path - The path of the service.
@@ -68,26 +110,39 @@ class PelerinClient {
    * @returns {Promise}
    */
   send(path, obj, options = {}) {
-    // define server
-    const client = this._loadClient(path, options)
+    // set options
+    const _options = {
+      requestStream: false,
+      responseStream: false,
+      ...options
+    }
+
+    // define client service
+    this._loadClient(path, _options)
 
     // convert the object to a dynamic value
     const value = serializers.valueFromJs(obj)
 
-    // get target names
-    const [, , handlerName] = path.split("/")
+    // choose request type
+    // unary request
+    if (_options.requestStream === false && _options.responseStream === false)
+      return this._sendUnaryRequest(path, value)
 
-    // return new promise with the results
-    return new Promise((resolve, reject) => {
-      // execute grpc request and promisify callback
-      client[handlerName](value, (err, response) => {
-        if (response) {
-          resolve(response.toJavaScript())
-        }
+    // server stream
+    else if (_options.requestStream === false && _options.responseStream === true)
+      return this._sendServerStreamRequest(path, value)
 
-        reject(err)
-      })
-    })
+    // client stream
+    else if (_options.requestStream === true && _options.responseStream === false)
+      return this._sendClientStreamRequest(path, value)
+
+    // bidirectional stream
+    else if (_options.requestStream === true && _options.responseStream === true)
+      return this._sendBidirectionalStreamRequest(path, value)
+
+    // unexpected request type
+    else
+      throw new Error("unexpected request type")
   }
 }
 

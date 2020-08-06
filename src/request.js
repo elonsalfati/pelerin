@@ -24,14 +24,11 @@ class Request {
 
     switch (name) {
       case "ServerUnaryCall":
+      case "ServerWritableStream":
         return this._call.request.toJavaScript()
 
       case "ServerReadableStream":
         return utils.stream.call(this._call)
-
-      case "ServerWritableStream":
-        console.log("this is writable stream", this._call)
-        break
 
       case "ServerDuplexStream":
         break
