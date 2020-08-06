@@ -18,6 +18,10 @@ class PelerinClient {
 
     // internal client description
     this._description = {}
+
+    // set tmp call
+    this._call = null
+    this._promise = null
   }
 
   /**
@@ -97,9 +101,51 @@ class PelerinClient {
     )
   }
 
-  _sendClientStreamRequest(path, value) {}
+  /**
+   * Send server stream request to the server.
+   *
+   * @param {string} path - The endpoint path.
+   * @param {object} value - Serialized object request.
+   * @returns {object} - this
+   */
+  _sendClientStreamRequest(path, value) {
+    // get target names
+    const [, , handlerName] = path.split("/")
+
+    // execute request
+    if (!this._call) {
+      this._promise = new Promise((resolve, reject) => {
+        this._call = this.client[handlerName]((err, response) => {
+          if (response) {
+            resolve(response.toJavaScript())
+          }
+
+          reject(err)
+        })
+      })
+    }
+
+    this._call.write(value)
+    return this
+  }
 
   _sendBidirectionalStreamRequest(path, value) {}
+
+  /**
+   * Finish stream requests
+   *
+   * @returns {Promise}
+   */
+  finish() {
+    if (this._call) {
+      this._call.end()
+
+      if (this._promise)
+        return this._promise
+    }
+
+    return Promise.reject("unavailable response")
+  }
 
   /**
    * Sends a dynamic value to a dynamic server.
