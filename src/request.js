@@ -16,8 +16,19 @@ class Request {
   }
 
   /**
+   * Returns the metadata as headers
+   *
+   * @returns {object} - Headers.
+   */
+  get headers() {
+    return this._call.metadata
+  }
+
+  /**
    * Returns the javascript object
    * from the gRPC request.
+   *
+   * @returns {object|EventIterator} - Body.
    */
   get body() {
     const { name } = this._call.constructor
