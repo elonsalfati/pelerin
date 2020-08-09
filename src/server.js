@@ -1,5 +1,6 @@
 const grpc = require("grpc")
 const utils = require("./utils")
+const Router = require("./router")
 const Request = require("./request")
 const Response = require("./response")
 
@@ -120,6 +121,31 @@ class Pelerin {
     this._description[serviceName][handlerName].options = {
       ...this._description[serviceName][handlerName].options,
       ...settings
+    }
+  }
+
+  /**
+   * Chain splitted code base.
+   *
+   * @param {string} service - Service name.
+   * @param {Router} router - Pelerin router instance.
+   */
+  service(service, router) {
+    // check if service has a valid value
+    if (service && service.constructor === String) {
+      // check if router are instance of pelerin router
+      if (router && router.constructor === Router) {
+        // chain each service
+        for (const [handlerPath, handlerArgs] of Object.entries(router.routes)) {
+          this.chain(`${service}/${handlerPath}`, ...handlerArgs)
+        }
+      } else {
+        // handle invalid router
+        throw new Error("handlers are required and must be an instance of Pelerin Router")
+      }
+    } else {
+      // handle invalid service name
+      throw new Error("service is required and must be of type string")
     }
   }
 
