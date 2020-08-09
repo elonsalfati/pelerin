@@ -27,7 +27,7 @@ class Router {
    * @param {...any} args - External arguments.
    * @returns {object} - this
    */
-  handler(path, ...args) {
+  chain(path, ...args) {
     this._routes[path] = args
   }
 }
